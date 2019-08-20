@@ -20,13 +20,8 @@
 # Daniel Holth <dholth@stetson.edu> or visit
 # http://www.stetson.edu/~ProctoLogic/
 #
-# Changelog:
-# 15 Nov. 2001:
-#   Removed dependency on Python 2.0 features.
-#   - dwh
-# 13 Feb. 2002:
-#   Added a generic callback handler.
-#   - dwh
+# Python3 port by Jonas Luft <jonas.luft@hcu-hamburg.de> August 2019
+#
 
 import struct
 import math
@@ -43,7 +38,7 @@ def hexDump(bytes):
             print(repr(bytes[i-7:i+1]))
 
     if(len(bytes) % 8 != 0):
-        print(string.rjust("", 11), repr(bytes[i-len(bytes)%8:i+1]))
+        print("".rjust(11), repr(bytes[i-len(bytes)%8:i+1]))
 
 
 class OSCMessage:
