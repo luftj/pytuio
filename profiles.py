@@ -1,4 +1,4 @@
-from tuio.objects import *
+from pytuio.objects import *
 
 class TuioProfile(object):
     """An abstract profile as defined in the TUIO protocol"""
