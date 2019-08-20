@@ -289,6 +289,10 @@ class CallbackManager:
 
 if __name__ == "__main__":
     hexDump("Welcome to the OSC testing program.")
+    if sys.version_info[0] == 3:
+        print("The tests don't work for python 3 yet!")
+        print("Aborting...")
+        exit()
     print
     message = OSCMessage()
     message.setAddress("/foo/play")
