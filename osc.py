@@ -40,10 +40,10 @@ def hexDump(bytes):
     for i in range(len(bytes)):
         sys.stdout.write("%2x " % (ord(bytes[i])))
         if (i+1) % 8 == 0:
-            print repr(bytes[i-7:i+1])
+            print(repr(bytes[i-7:i+1]))
 
     if(len(bytes) % 8 != 0):
-        print string.rjust("", 11), repr(bytes[i-len(bytes)%8:i+1])
+        print(string.rjust("", 11), repr(bytes[i-len(bytes)%8:i+1]))
 
 
 class OSCMessage:
@@ -99,20 +99,25 @@ class OSCMessage:
         return self.getBinary()
 
 def readString(data):
-    length   = string.find(data,"\0")
-    nextData = int(math.ceil((length+1) / 4.0) * 4)
-    return (data[0:length], data[nextData:])
-
+    ret = data.split(b'\x00', 1)
+    curlength = len(ret[0])
+    nextData = int(math.ceil((curlength+1) / 4.0) * 4) # zero-byte padding to fill 4-byte step
+    start = nextData-curlength-1    # skip padding from ramaidner
+    ret[1] = ret[1][start:]
+    return ret
+    #length   = data.find(b'\n')# string.find(data,"\0")
+    #print(length)
+    #nextData = int(math.ceil((length+1) / 4.0) * 4)
+    #return (data[0:length], data[nextData:])
 
 def readBlob(data):
     length   = struct.unpack(">i", data[0:4])[0]
     nextData = int(math.ceil((length) / 4.0) * 4) + 4
     return (data[4:length+4], data[nextData:])
 
-
 def readInt(data):
     if(len(data)<4):
-        print "Error: too few bytes for int", data, len(data)
+        print("Error: too few bytes for int", data, len(data))
         rest = data
         integer = 0
     else:
@@ -121,21 +126,17 @@ def readInt(data):
 
     return (integer, rest)
 
-
-
 def readLong(data):
     """Tries to interpret the next 8 bytes of the data
     as a 64-bit signed integer."""
     high, low = struct.unpack(">ll", data[0:8])
-    big = (long(high) << 32) + low
+    big = (int(high) << 32) + low
     rest = data[8:]
     return (big, rest)
 
-
-
 def readFloat(data):
     if(len(data)<4):
-        print "Error: too few bytes for float", data, len(data)
+        print("Error: too few bytes for float", data, len(data))
         rest = data
         float = 0
     else:
@@ -143,7 +144,6 @@ def readFloat(data):
         rest  = data[4:]
 
     return (float, rest)
-
 
 def OSCBlob(next):
     """Convert a string into an OSC Blob,
@@ -159,7 +159,6 @@ def OSCBlob(next):
         binary = ''
 
     return (tag, binary)
-
 
 def OSCArgument(next):
     """Convert some Python types to their
@@ -182,19 +181,18 @@ def OSCArgument(next):
 
     return (tag, binary)
 
-
 def parseArgs(args):
     """Given a list of strings, produces a list
     where those strings have been parsed (where
     possible) as floats or integers."""
     parsed = []
     for arg in args:
-        print arg
+        print(arg)
         arg = arg.strip()
         interpretation = None
         try:
             interpretation = float(arg)
-            if string.find(arg, ".") == -1:
+            if arg.find(".") == -1:
                 interpretation = int(interpretation)
         except:
             # Oh - it was a string.
@@ -203,16 +201,15 @@ def parseArgs(args):
         parsed.append(interpretation)
     return parsed
 
-
-
 def decodeOSC(data):
     """Converts a typetagged OSC message to a Python list."""
     table = {"i":readInt, "f":readFloat, "s":readString, "b":readBlob}
     decoded = []
     address,  rest = readString(data)
-    typetags = ""
-
-    if address == "#bundle":
+    typetags = b""
+    # print(data)
+    # print(str(data.decode("latin_1")))
+    if address == b"#bundle":
         time, rest = readLong(rest)
 #       decoded.append(address)
 #       decoded.append(time)
@@ -225,12 +222,16 @@ def decodeOSC(data):
         typetags, rest = readString(rest)
         decoded.append(address)
         decoded.append(typetags)
-        if typetags[0] == ",":
+        #print(typetags[0])
+        if typetags[0] == "," or chr(typetags[0]) == ",":
             for tag in typetags[1:]:
-                value, rest = table[tag](rest)
+                try:
+                    value, rest = table[chr(tag)](rest)
+                except:
+                    value, rest = table[tag](rest)
                 decoded.append(value)
         else:
-            print "Oops, typetag lacks the magic ,"
+            print("Oops, typetag lacks the magic ,")
 
     return decoded
 
@@ -256,21 +257,22 @@ class CallbackManager:
         """Sends decoded OSC data to an appropriate calback"""
         msgtype = ""
         try:
-            if type(message[0]) == str:
+            if type(message[0]) == str or type(message[0]) is bytes:
                 # got a single message
-                address = message[0]
-                self.callbacks[address](message)
+                address = message[0].decode("latin_1")
+                newmessage = [ x.decode("latin_1") if type(x) is bytes else x for x in message ]
+                self.callbacks[address](newmessage)
             elif type(message[0]) == list:
                 for msg in message:
                     self.dispatch(msg)
-        except KeyError, key:
-            print 'address %s not found, %s: %s' % (address, key, message)
+        except KeyError as key:
+            print('address %s not found, %s: %s' % (address, key, message))
             pprint.pprint(message)
-        except IndexError, e:
-            print '%s: %s' % (e, message)
+        except IndexError as e:
+            print('%s: %s' % (e, message))
             pass
-        except None, e:
-            print "Exception in", address, "callback :", e
+        except Exception as e:
+            print("Exception in", address, "callback :", e)
 
         return
 
@@ -301,7 +303,7 @@ if __name__ == "__main__":
     message.append("the white cliffs of dover")
     hexDump(message.getBinary())
 
-    print "Making and unmaking a message.."
+    print("Making and unmaking a message..")
 
     strings = OSCMessage()
     strings.append("Mary had a little lamb")
@@ -316,26 +318,26 @@ if __name__ == "__main__":
 
     hexDump(raw)
 
-    print "Retrieving arguments..."
+    print("Retrieving arguments...")
     data = raw
     for i in range(6):
-        text, data = readString(data)
-        print text
+        text, data = readString(bytes(data))
+        print(text)
 
     number, data = readFloat(data)
-    print number
+    print(number)
 
     number, data = readFloat(data)
-    print number
+    print(number)
 
     number, data = readInt(data)
-    print number
+    print(number)
 
     hexDump(raw)
-    print decodeOSC(raw)
-    print decodeOSC(message.getBinary())
+    print(decodeOSC(raw))
+    print(decodeOSC(message.getBinary()))
 
-    print "Testing Blob types."
+    print("Testing Blob types.")
 
     blob = OSCMessage()
     blob.append("","b")
@@ -348,7 +350,7 @@ if __name__ == "__main__":
 
     hexDump(blob.getBinary())
 
-    print decodeOSC(blob.getBinary())
+    print(decodeOSC(blob.getBinary()))
 
     def printingCallback(*stuff):
         sys.stdout.write("Got: ")
@@ -356,7 +358,7 @@ if __name__ == "__main__":
             sys.stdout.write(str(i) + " ")
         sys.stdout.write("\n")
 
-    print "Testing the callback manager."
+    print("Testing the callback manager.")
 
     c = CallbackManager()
     c.add(printingCallback, "/print")
@@ -383,5 +385,5 @@ if __name__ == "__main__":
 
     bundlebinary = bundle.message
 
-    print "sending a bundle to the callback manager"
+    print("sending a bundle to the callback manager")
     c.handle(bundlebinary)

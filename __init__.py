@@ -13,8 +13,8 @@ import math
 import socket
 import inspect
 
-import tuio.osc
-import tuio.profiles
+import pytuio.osc
+import pytuio.profiles
 
 class CallbackError(Exception):
     pass
@@ -98,11 +98,17 @@ class Tracking(object):
         Gets called by the CallbackManager if a new message was received 
         """
         message = incoming[0]
+
+        # for msg in message:
+        #     if type(msg) is bytes:
+                
+
         if message:
             address, command = message[0], message[2]
             profile = self.get_profile(address)
             if profile is not None:
                 try:
+                    # if command == '': command = "set"
                     getattr(profile, command)(self, message)
                 except AttributeError:
                     pass
